@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}View Roadmap{% endblock %}
+{% block page_title %}🗺️ Roadmap Detail{% endblock %}
+
+{% block content %}
+<div style="max-width:820px;margin:0 auto">
+  <!-- Header -->
+  <div class="flex-between mb-24" style="flex-wrap:wrap;gap:12px">
+    <div>
+      <a href="{{ url_for('roadmap.index') }}" style="font-size:.82rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;margin-bottom:8px">
+        <i class="bi bi-arrow-left"></i> Back to Generator
+      </a>
+      <h1 style="font-size:1.35rem;margin-bottom:6px">{{ roadmap.title }}</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge-custom badge-purple">{{ roadmap.experience_level }}</span>
+        <span class="badge-custom badge-teal">{{ roadmap.study_hours_per_week }}h/week</span>
+        <span class="badge-custom badge-orange">{{ roadmap.created_at.strftime('%b %d, %Y') }}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-secondary-custom" style="padding:8px 16px;font-size:.85rem" id="copyBtn"
+        onclick="copyToClipboard(document.getElementById('rawContent').textContent, this)">
+        <i class="bi bi-clipboard"></i> Copy
+      </button>
+      <button class="btn-secondary-custom" style="padding:8px 16px;font-size:.85rem;border-color:rgba(255,107,157,.3);color:var(--accent-tertiary)" 
+        onclick="deleteRoadmap()">
+        <i class="bi bi-trash3"></i> Delete
+      </button>
+    </div>
+  </div>
+
+  <!-- Meta info -->
+  <div class="card-custom mb-24" style="padding:16px 20px;background:rgba(108,99,255,.06);border-color:rgba(108,99,255,.2)">
+    <div class="grid-2" style="gap:12px">
+      <div>
+        <div class="text-xs text-muted-custom">Career Goal</div>
+        <div style="font-weight:600;font-size:.92rem;color:var(--text-primary)">{{ roadmap.career_goal }}</div>
+      </div>
+      <div>
+        <div class="text-xs text-muted-custom">Current Skills</div>
+        <div style="font-weight:500;font-size:.88rem;color:var(--text-secondary)">{{ roadmap.current_skills or 'Not specified' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Roadmap content -->
+  <div class="card-custom">
+    <div class="ai-response" id="roadmapContent"></div>
+    <!-- Hidden raw content for copy -->
+    <span id="rawContent" style="display:none">{{ roadmap.content }}</span>
+  </div>
+</div>
+
+<script>
+  // Render markdown on load
+  document.addEventListener('DOMContentLoaded', () => {
+    const raw = document.getElementById('rawContent').textContent;
+    document.getElementById('roadmapContent').innerHTML = `<div class="ai-response">${MD.render(raw)}</div>`;
+  });
+
+  function deleteRoadmap() {
+    deleteItem('/roadmap/{{ roadmap.id }}/delete', () => {
+      window.location.href = '/history?tab=roadmaps';
+    });
+  }
+</script>
+{% endblock %}

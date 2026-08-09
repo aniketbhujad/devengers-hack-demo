@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}AI Mentor Chat{% endblock %}
+{% block page_title %}💬 AI Mentor Chat{% endblock %}
+
+{% block extra_head %}
+<style>
+  .page-content { padding: 0 !important; display: flex; flex-direction: column; height: calc(100vh - 64px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex:1;height:100%;overflow:hidden">
+
+  <!-- Chat sessions sidebar (desktop) -->
+  <div id="chatSidebar" style="
+    width:260px;flex-shrink:0;
+    background:var(--bg-secondary);
+    border-right:1px solid var(--border-color);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  ">
+    <div style="padding:16px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-weight:700;font-size:.9rem">Chat Sessions</span>
+      <button class="btn-primary-custom" style="padding:5px 12px;font-size:.78rem" onclick="newChatSession()">
+        <i class="bi bi-plus"></i> New
+      </button>
+    </div>
+    <div id="sessionList" style="flex:1;overflow-y:auto;padding:8px"></div>
+  </div>
+
+  <!-- Main chat area -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+    <!-- Chat header -->
+    <div style="padding:12px 20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;background:var(--gradient-hero);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem">🤖</div>
+        <div>
+          <div style="font-weight:700;font-size:.92rem">LearnMate AI</div>
+          <div style="font-size:.75rem;color:var(--accent-secondary);display:flex;align-items:center;gap:4px">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-secondary);display:inline-block"></span>
+            IBM Granite · Online
+          </div>
+        </div>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-muted)">Session: <span id="sessionIdDisplay" style="font-family:monospace">{{ session_id[:8] }}…</span></div>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages" class="chat-messages">
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="chat-bubble {{ msg.role }}" id="msg-{{ msg.id }}">
+            {% if msg.role == 'assistant' %}
+              <div class="ai-response">{{ msg.content | safe }}</div>
+            {% else %}
+              <p>{{ msg.content }}</p>
+            {% endif %}
+            <div class="bubble-meta">{{ msg.created_at.strftime('%H:%M') }}</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <!-- Welcome message -->
+        <div class="chat-bubble assistant" id="welcomeMsg">
+          <div class="ai-response">
+            <p>👋 Hi <strong>{{ current_user.display_name }}</strong>! I'm <strong>LearnMate</strong>, your AI learning mentor powered by IBM Granite.</p>
+            <p>I can help you with:</p>
+            <ul>
+              <li>📚 <strong>Learning paths</strong> — ask me "How do I learn Python for data science?"</li>
+              <li>💼 <strong>Career advice</strong> — "What skills do I need for a DevOps role?"</li>
+              <li>🎯 <strong>Interview tips</strong> — "How should I prepare for a React developer interview?"</li>
+              <li>🧠 <strong>Tech explanations</strong> — "Explain REST APIs to me"</li>
+            </ul>
+            <p>What would you like to explore today?</p>
+          </div>
+          <div class="bubble-meta">Now</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Chat input -->
+    <div class="chat-input-area">
+      <textarea
+        id="chatInput"
+        class="chat-input"
+        placeholder="Ask anything about learning, careers, or technology…"
+        rows="1"
+        onkeydown="handleEnter(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()" title="Send (Enter)">
+        <i class="bi bi-send-fill"></i>
+      </button>
+    </div>
+
+    <!-- Suggestion chips -->
+    <div style="padding:8px 20px 12px;display:flex;flex-wrap:wrap;gap:6px;background:var(--bg-secondary)">
+      {% for chip in [
+        '🗺️ Create a roadmap for me',
+        '💼 Career advice for tech',
+        '🐍 How to learn Python?',
+        '🎯 Interview tips',
+        '☁️ Cloud computing basics'
+      ] %}
+      <button class="badge-custom badge-purple" style="cursor:pointer;border:none;padding:5px 12px;font-size:.78rem"
+        onclick="fillChip('{{ chip }}')">{{ chip }}</button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+let currentSessionId = '{{ session_id }}';
+let isGenerating = false;
+
+// Load session list on start
+loadSessions();
+
+// Auto-scroll to bottom
+scrollToBottom();
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message || isGenerating) return;
+
+  isGenerating = true;
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+
+  // Add user bubble
+  appendBubble('user', message, 'Just now');
+
+  // Typing indicator
+  const typingId = 'typing-' + Date.now();
+  appendTyping(typingId);
+
+  try {
+    const res = await fetch('/chat/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+
+    document.getElementById(typingId)?.remove();
+
+    if (data.error) {
+      appendBubble('assistant', '❌ ' + data.error, 'Now');
+    } else {
+      currentSessionId = data.session_id;
+      document.getElementById('sessionIdDisplay').textContent = data.session_id.slice(0,8) + '…';
+      appendAssistantBubble(data.reply);
+      loadSessions();
+    }
+  } catch (err) {
+    document.getElementById(typingId)?.remove();
+    appendBubble('assistant', '⚠️ Network error. Please try again.', 'Now');
+  } finally {
+    isGenerating = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('chatInput').focus();
+  }
+}
+
+function appendBubble(role, content, time) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${role}`;
+  div.innerHTML = `<p>${escapeHtml(content)}</p><div class="bubble-meta">${time}</div>`;
+  msgs.appendChild(div);
+  scrollToBottom();
+}
+
+function appendAssistantBubble(content) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble assistant';
+  const inner = document.createElement('div');
+  inner.className = 'ai-response';
+  div.appendChild(inner);
+  const meta = document.createElement('div');
+  meta.className = 'bubble-meta';
+  meta.textContent = 'Just now';
+  div.appendChild(meta);
+  msgs.appendChild(div);
+
+  // Render with typewriter
+  typewriterRender(inner, content);
+  scrollToBottom();
+}
+
+function appendTyping(id) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble assistant';
+  div.id = id;
+  div.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div>`;
+  msgs.appendChild(div);
+  scrollToBottom();
+}
+
+function scrollToBottom() {
+  const msgs = document.getElementById('chatMessages');
+  setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 50);
+}
+
+function handleEnter(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function fillChip(text) {
+  const input = document.getElementById('chatInput');
+  input.value = text.replace(/^[^\s]+ /, '');  // Remove emoji
+  input.focus();
+  autoResize(input);
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+async function newChatSession() {
+  const res = await fetch('/chat/new_session', { method: 'POST' });
+  const data = await res.json();
+  currentSessionId = data.session_id;
+  document.getElementById('sessionIdDisplay').textContent = data.session_id.slice(0,8) + '…';
+  document.getElementById('chatMessages').innerHTML = '';
+  appendBubble('assistant', '🆕 New session started. How can I help you today?', 'Now');
+  loadSessions();
+  Toast.show('New chat session started.', 'info');
+}
+
+async function loadSessions() {
+  try {
+    const res = await fetch('/history/chats');
+    const sessions = await res.json();
+    const list = document.getElementById('sessionList');
+    if (!sessions.length) {
+      list.innerHTML = '<div style="padding:16px;text-align:center;font-size:.8rem;color:var(--text-muted)">No past sessions</div>';
+      return;
+    }
+    list.innerHTML = sessions.map(s => `
+      <div class="history-item" style="margin-bottom:6px;padding:10px 12px" onclick="loadSession('${s.session_id}')">
+        <div style="font-size:.8rem;color:var(--text-secondary);line-height:1.4" class="truncate">${escapeHtml(s.preview)}</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">${s.created_at}</div>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+async function loadSession(sessionId) {
+  await fetch('/history/chats/' + sessionId + '/load', { method: 'POST' });
+  window.location.reload();
+}
+
+// Render existing assistant messages (markdown)
+document.querySelectorAll('.chat-bubble.assistant .ai-response').forEach(el => {
+  if (el.querySelector('p,ul,h2,h3')) return; // already rendered
+  el.innerHTML = MD.render(el.textContent);
+});
+</script>
+{% endblock %}

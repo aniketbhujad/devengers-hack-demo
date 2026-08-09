@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block page_title %}📚 My History{% endblock %}
+
+{% block content %}
+<!-- Tab navigation -->
+<div class="tab-nav" style="max-width:480px">
+  <button class="tab-btn {% if active_tab == 'roadmaps' %}active{% endif %}" onclick="switchTab('roadmaps', this)">
+    <i class="bi bi-map"></i> Roadmaps
+  </button>
+  <button class="tab-btn {% if active_tab == 'chats' %}active{% endif %}" onclick="switchTab('chats', this)">
+    <i class="bi bi-chat-dots"></i> Chat Sessions
+  </button>
+  <button class="tab-btn {% if active_tab == 'interviews' %}active{% endif %}" onclick="switchTab('interviews', this)">
+    <i class="bi bi-briefcase"></i> Interview Plans
+  </button>
+</div>
+
+<!-- Roadmaps tab -->
+<div id="tab-roadmaps" class="tab-pane" style="{{ '' if active_tab == 'roadmaps' else 'display:none' }}">
+  <div id="roadmapsList">
+    <div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+  </div>
+</div>
+
+<!-- Chats tab -->
+<div id="tab-chats" class="tab-pane" style="{{ '' if active_tab == 'chats' else 'display:none' }}">
+  <div id="chatsList">
+    <div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+  </div>
+
+  <!-- Chat detail modal area -->
+  <div id="chatDetailArea" style="display:none;margin-top:20px">
+    <div class="card-custom">
+      <div class="flex-between mb-16">
+        <h3 style="font-size:1rem;display:flex;align-items:center;gap:8px">
+          <i class="bi bi-chat-text-fill" style="color:var(--accent-primary)"></i>
+          Chat Detail
+        </h3>
+        <button class="btn-icon" onclick="document.getElementById('chatDetailArea').style.display='none'">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div id="chatDetailMessages" style="max-height:500px;overflow-y:auto;display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Interviews tab -->
+<div id="tab-interviews" class="tab-pane" style="{{ '' if active_tab == 'interviews' else 'display:none' }}">
+  <div id="interviewsList">
+    <div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+  </div>
+</div>
+
+<script>
+// Load initial tab
+loadTab('{{ active_tab }}');
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).style.display = 'block';
+  btn.classList.add('active');
+  loadTab(tab);
+}
+
+function loadTab(tab) {
+  if (tab === 'roadmaps') loadRoadmaps();
+  else if (tab === 'chats') loadChats();
+  else if (tab === 'interviews') loadInterviews();
+}
+
+async function loadRoadmaps() {
+  const container = document.getElementById('roadmapsList');
+  container.innerHTML = '<div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  try {
+    const res = await fetch('/history/roadmaps');
+    const items = await res.json();
+    if (!items.length) {
+      container.innerHTML = emptyState('🗺️', 'No roadmaps yet', 'Generate your first personalised roadmap.', '/roadmap/', 'Create Roadmap');
+      return;
+    }
+    container.innerHTML = items.map(r => `
+      <div class="history-item" onclick="window.location='/roadmap/${r.id}'">
+        <div class="history-item-icon" style="background:rgba(108,99,255,.12)">
+          <i class="bi bi-signpost" style="color:var(--accent-primary)"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="fw-700" style="font-size:.9rem">${escHtml(r.title)}</div>
+          <div class="text-xs text-muted-custom mt-4">${r.created_at}</div>
+          <div class="mt-4" style="display:flex;flex-wrap:wrap;gap:4px">
+            <span class="badge-custom badge-purple">${r.experience_level}</span>
+            <span class="badge-custom badge-teal">${r.study_hours_per_week}h/week</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <a href="/roadmap/${r.id}" class="btn-icon" title="View" onclick="event.stopPropagation()">
+            <i class="bi bi-eye"></i>
+          </a>
+          <button class="btn-icon" style="color:var(--accent-tertiary)" title="Delete"
+            onclick="event.stopPropagation(); deleteItem('/roadmap/${r.id}/delete', loadRoadmaps)">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { container.innerHTML = errorState(); }
+}
+
+async function loadChats() {
+  const container = document.getElementById('chatsList');
+  container.innerHTML = '<div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  try {
+    const res = await fetch('/history/chats');
+    const sessions = await res.json();
+    if (!sessions.length) {
+      container.innerHTML = emptyState('💬', 'No chat sessions yet', 'Start a conversation with your AI mentor.', '/chat/', 'Start Chatting');
+      return;
+    }
+    container.innerHTML = sessions.map(s => `
+      <div class="history-item" onclick="loadChatDetail('${s.session_id}')">
+        <div class="history-item-icon" style="background:rgba(0,212,170,.1)">
+          <i class="bi bi-chat-text" style="color:var(--accent-secondary)"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="fw-700" style="font-size:.88rem">${escHtml(s.preview)}</div>
+          <div class="text-xs text-muted-custom mt-4">${s.created_at}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-icon" title="Load in chat"
+            onclick="event.stopPropagation(); resumeSession('${s.session_id}')">
+            <i class="bi bi-arrow-right-circle"></i>
+          </button>
+          <button class="btn-icon" style="color:var(--accent-tertiary)" title="Delete"
+            onclick="event.stopPropagation(); deleteItem('/history/chats/${s.session_id}/delete', loadChats)">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { container.innerHTML = errorState(); }
+}
+
+async function loadChatDetail(sessionId) {
+  const area = document.getElementById('chatDetailArea');
+  const msgs = document.getElementById('chatDetailMessages');
+  area.style.display = 'block';
+  msgs.innerHTML = '<div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  area.scrollIntoView({ behavior: 'smooth' });
+
+  const res = await fetch('/history/chats/' + sessionId);
+  const messages = await res.json();
+
+  msgs.innerHTML = messages.map(m => `
+    <div class="chat-bubble ${m.role}" style="max-width:80%">
+      ${m.role === 'assistant'
+        ? `<div class="ai-response">${MD.render(m.content)}</div>`
+        : `<p>${escHtml(m.content)}</p>`}
+      <div class="bubble-meta">${m.created_at}</div>
+    </div>
+  `).join('');
+}
+
+async function resumeSession(sessionId) {
+  await fetch('/history/chats/' + sessionId + '/load', { method: 'POST' });
+  window.location.href = '/chat/';
+}
+
+async function loadInterviews() {
+  const container = document.getElementById('interviewsList');
+  container.innerHTML = '<div class="loading-overlay"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  try {
+    const res = await fetch('/history/interviews');
+    const items = await res.json();
+    if (!items.length) {
+      container.innerHTML = emptyState('🎯', 'No interview plans yet', 'Generate your first interview preparation plan.', '/interview/', 'Create Plan');
+      return;
+    }
+    container.innerHTML = items.map(i => `
+      <div class="history-item">
+        <div class="history-item-icon" style="background:rgba(255,107,157,.1)">
+          <i class="bi bi-briefcase" style="color:var(--accent-tertiary)"></i>
+        </div>
+        <div style="flex:1;min-width:0" onclick="toggleInterview('detail-${i.id}')">
+          <div class="fw-700" style="font-size:.9rem">${escHtml(i.job_role)}</div>
+          <div class="text-xs text-muted-custom mt-4">${i.created_at}</div>
+          <div class="mt-4" style="display:flex;flex-wrap:wrap;gap:4px">
+            <span class="badge-custom badge-pink">${i.experience_level}</span>
+            <span class="badge-custom badge-orange">${escHtml(i.company_type)}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-icon" title="Expand" onclick="toggleInterview('detail-${i.id}')">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <button class="btn-icon" style="color:var(--accent-tertiary)" title="Delete"
+            onclick="deleteItem('/interview/${i.id}/delete', loadInterviews)">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+      <div id="detail-${i.id}" style="display:none;padding:0 18px 14px;margin-top:-8px">
+        <div class="card-custom" style="padding:16px">
+          <div class="ai-response">${MD.render(i.content)}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { container.innerHTML = errorState(); }
+}
+
+function toggleInterview(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function emptyState(icon, title, desc, link, linkText) {
+  return `
+    <div class="empty-state">
+      <div class="empty-icon">${icon}</div>
+      <h4>${title}</h4>
+      <p>${desc}</p>
+      <a href="${link}" class="btn-primary-custom" style="margin-top:12px;font-size:.85rem">
+        <i class="bi bi-plus"></i> ${linkText}
+      </a>
+    </div>
+  `;
+}
+
+function errorState() {
+  return '<div class="empty-state"><div class="empty-icon">⚠️</div><h4>Could not load data</h4><p>Please refresh the page.</p></div>';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

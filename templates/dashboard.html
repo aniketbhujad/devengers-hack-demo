@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Welcome banner -->
+<div class="card-custom" style="
+  background: linear-gradient(135deg, rgba(108,99,255,.2) 0%, rgba(0,212,170,.1) 100%);
+  border-color: rgba(108,99,255,.3);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+">
+  <div>
+    <h2 style="font-size:1.5rem;margin-bottom:6px">
+      👋 Welcome back, <span class="gradient-text">{{ current_user.display_name }}</span>!
+    </h2>
+    <p style="margin:0;font-size:.92rem">
+      Ready to level up? Your AI mentor is here to guide your learning journey.
+    </p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a href="{{ url_for('roadmap.index') }}" class="btn-primary-custom">
+      <i class="bi bi-map"></i> Generate Roadmap
+    </a>
+    <a href="{{ url_for('chat.index') }}" class="btn-secondary-custom">
+      <i class="bi bi-chat-dots"></i> Chat with AI
+    </a>
+  </div>
+</div>
+
+<!-- Stats row -->
+<div class="stat-cards-grid mb-24">
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="bi bi-map" style="color:var(--accent-primary)"></i></div>
+    <div>
+      <div class="stat-value">{{ total_roadmaps }}</div>
+      <div class="stat-label">Roadmaps Created</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon teal"><i class="bi bi-chat-dots" style="color:var(--accent-secondary)"></i></div>
+    <div>
+      <div class="stat-value">{{ total_chats }}</div>
+      <div class="stat-label">Chat Messages</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon pink"><i class="bi bi-briefcase" style="color:var(--accent-tertiary)"></i></div>
+    <div>
+      <div class="stat-value">{{ total_interviews }}</div>
+      <div class="stat-label">Interview Plans</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="bi bi-fire" style="color:var(--accent-warning)"></i></div>
+    <div>
+      <div class="stat-value">AI</div>
+      <div class="stat-label">Powered by Granite</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main grid -->
+<div class="grid-2" style="align-items:start">
+  <!-- Recent Roadmaps -->
+  <div class="card-custom">
+    <div class="flex-between mb-16">
+      <h3 style="font-size:1rem;display:flex;align-items:center;gap:8px">
+        <i class="bi bi-map-fill" style="color:var(--accent-primary)"></i>
+        Recent Roadmaps
+      </h3>
+      <a href="{{ url_for('history.index') }}?tab=roadmaps" style="font-size:.82rem;color:var(--accent-primary)">View all →</a>
+    </div>
+
+    {% if recent_roadmaps %}
+      {% for roadmap in recent_roadmaps %}
+      <div class="history-item" onclick="window.location='{{ url_for('roadmap.view', roadmap_id=roadmap.id) }}'">
+        <div class="history-item-icon" style="background:rgba(108,99,255,.12)">
+          <i class="bi bi-signpost" style="color:var(--accent-primary)"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="fw-700 truncate" style="font-size:.9rem">{{ roadmap.title }}</div>
+          <div class="text-xs text-muted-custom mt-4">{{ roadmap.created_at.strftime('%b %d, %Y') }}</div>
+          <div class="mt-4">
+            <span class="badge-custom badge-purple">{{ roadmap.experience_level }}</span>
+            <span class="badge-custom badge-teal" style="margin-left:4px">{{ roadmap.study_hours_per_week }}h/week</span>
+          </div>
+        </div>
+        <i class="bi bi-chevron-right text-muted-custom"></i>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:30px 20px">
+        <div class="empty-icon">🗺️</div>
+        <h4>No roadmaps yet</h4>
+        <p>Generate your first personalised learning roadmap.</p>
+        <a href="{{ url_for('roadmap.index') }}" class="btn-primary-custom" style="margin-top:12px;font-size:.85rem">
+          <i class="bi bi-plus"></i> Create Roadmap
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Quick Actions + AI Features -->
+  <div>
+    <!-- Quick Actions -->
+    <div class="card-custom mb-16">
+      <h3 style="font-size:1rem;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+        <i class="bi bi-lightning-fill" style="color:var(--accent-warning)"></i>
+        Quick Actions
+      </h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <a href="{{ url_for('roadmap.index') }}" class="card-custom" style="padding:16px;text-decoration:none;text-align:center;cursor:pointer">
+          <div style="font-size:1.6rem;margin-bottom:6px">🗺️</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text-primary)">New Roadmap</div>
+        </a>
+        <a href="{{ url_for('chat.index') }}" class="card-custom" style="padding:16px;text-decoration:none;text-align:center;cursor:pointer">
+          <div style="font-size:1.6rem;margin-bottom:6px">🤖</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text-primary)">AI Mentor</div>
+        </a>
+        <a href="{{ url_for('interview.index') }}" class="card-custom" style="padding:16px;text-decoration:none;text-align:center;cursor:pointer">
+          <div style="font-size:1.6rem;margin-bottom:6px">🎯</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text-primary)">Interview Prep</div>
+        </a>
+        <a href="{{ url_for('history.index') }}" class="card-custom" style="padding:16px;text-decoration:none;text-align:center;cursor:pointer">
+          <div style="font-size:1.6rem;margin-bottom:6px">📚</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text-primary)">My History</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- AI Features card -->
+    <div class="card-custom" style="background:linear-gradient(135deg,rgba(108,99,255,.12),rgba(0,212,170,.06));border-color:rgba(108,99,255,.25)">
+      <h3 style="font-size:1rem;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <i class="bi bi-stars" style="color:var(--accent-primary)"></i>
+        AI Capabilities
+      </h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {% for feature in [
+          ('🗺️', 'Personalised Roadmaps', 'Phase-by-phase learning plans tailored to your goals'),
+          ('💬', 'AI Mentor Chat', 'Get answers, career advice, and learning tips'),
+          ('🎯', 'Interview Coaching', 'HR & technical questions with model answers'),
+          ('📊', 'Progress Tracking', 'History of all your AI-generated content')
+        ] %}
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:1.2rem;flex-shrink:0;margin-top:2px">{{ feature[0] }}</div>
+          <div>
+            <div style="font-size:.88rem;font-weight:600;color:var(--text-primary)">{{ feature[1] }}</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">{{ feature[2] }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

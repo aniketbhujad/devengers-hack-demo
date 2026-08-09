@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Interview Prep{% endblock %}
+{% block page_title %}🎯 Interview Preparation{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="align-items:start;gap:24px">
+
+  <!-- Form -->
+  <div>
+    <div class="card-custom">
+      <h2 style="font-size:1.15rem;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+        <i class="bi bi-briefcase-fill" style="color:var(--accent-tertiary)"></i>
+        Generate Interview Prep Plan
+      </h2>
+      <p style="font-size:.85rem;margin-bottom:24px">
+        Get a personalised interview preparation plan with HR &amp; technical questions, model answers, and a 2-week schedule.
+      </p>
+
+      <form id="interviewForm">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-person-badge"></i> Target Job Role <span style="color:var(--accent-tertiary)">*</span>
+          </label>
+          <input type="text" class="form-control-custom" id="jobRole"
+            placeholder="e.g. Backend Python Developer, Data Analyst, DevOps Engineer" required>
+        </div>
+
+        <div class="grid-2" style="gap:14px">
+          <div class="form-group">
+            <label class="form-label"><i class="bi bi-building"></i> Company Type</label>
+            <select class="form-control-custom" id="companyType">
+              <option value="tech startup">Tech Startup</option>
+              <option value="large tech company" selected>Large Tech Company</option>
+              <option value="FAANG/MAANG">FAANG / MAANG</option>
+              <option value="IT services company">IT Services (TCS/Infosys)</option>
+              <option value="product company">Product Company</option>
+              <option value="government/public sector">Government / Public Sector</option>
+              <option value="consulting firm">Consulting Firm</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="bi bi-award"></i> Experience Level</label>
+            <select class="form-control-custom" id="expLevel">
+              <option value="fresher/entry-level">Fresher / Entry Level</option>
+              <option value="junior" selected>Junior (1–2 yrs)</option>
+              <option value="mid-level">Mid Level (3–5 yrs)</option>
+              <option value="senior">Senior (5+ yrs)</option>
+              <option value="lead/principal">Lead / Principal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-code-slash"></i> Tech Stack / Focus Areas (optional)
+          </label>
+          <input type="text" class="form-control-custom" id="focusAreas"
+            placeholder="e.g. Python, Django, REST APIs, PostgreSQL, Docker">
+        </div>
+
+        <button type="submit" class="btn-primary-custom" style="width:100%;justify-content:center;padding:13px" id="interviewBtn">
+          <i class="bi bi-stars"></i> Generate Interview Plan
+        </button>
+      </form>
+
+      <!-- What's included -->
+      <div style="margin-top:20px;padding:14px;background:rgba(255,107,157,.06);border-radius:var(--radius);border:1px solid rgba(255,107,157,.2)">
+        <div style="font-size:.82rem;font-weight:700;color:var(--accent-tertiary);margin-bottom:8px">📋 What's included</div>
+        <ul style="font-size:.8rem;color:var(--text-muted);padding-left:16px;margin:0;line-height:1.8">
+          <li>5 HR / Behavioural questions (STAR format)</li>
+          <li>8–10 Technical questions with model answers</li>
+          <li>Role-specific preparation tips</li>
+          <li>Recommended practice platforms</li>
+          <li>2-week preparation schedule</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div>
+    <div class="card-custom" id="resultCard" style="min-height:300px">
+      <div id="resultPlaceholder" class="empty-state">
+        <div class="empty-icon" style="font-size:2.5rem">🎯</div>
+        <h4>Your prep plan will appear here</h4>
+        <p>Fill in your target role details and generate a comprehensive interview preparation plan.</p>
+      </div>
+
+      <div id="loadingState" style="display:none">
+        <div class="loading-overlay" style="flex-direction:column;gap:16px">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <p style="font-size:.88rem;text-align:center">IBM Granite is preparing your interview plan…<br>
+            <span style="font-size:.78rem;color:var(--text-muted)">This may take 15–25 seconds</span></p>
+        </div>
+      </div>
+
+      <div id="resultContent" style="display:none">
+        <div class="flex-between mb-16">
+          <h3 id="resultTitle" style="font-size:1rem;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-check-circle-fill" style="color:var(--accent-secondary)"></i>
+            Interview Plan
+          </h3>
+          <button class="btn-secondary-custom" style="padding:6px 14px;font-size:.8rem" id="copyBtn" onclick="copyPlan()">
+            <i class="bi bi-clipboard"></i> Copy
+          </button>
+        </div>
+        <div id="interviewText" class="ai-response" style="max-height:560px;overflow-y:auto;padding-right:6px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentPlanText = '';
+
+document.getElementById('interviewForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const jobRole = document.getElementById('jobRole').value.trim();
+  if (!jobRole) { Toast.show('Please enter your target job role.', 'error'); return; }
+
+  document.getElementById('resultPlaceholder').style.display = 'none';
+  document.getElementById('resultContent').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'block';
+
+  const btn = document.getElementById('interviewBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-top-color:#fff"></div> Generating…';
+
+  try {
+    const res = await fetch('/interview/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_role: jobRole,
+        company_type: document.getElementById('companyType').value,
+        experience_level: document.getElementById('expLevel').value,
+        focus_areas: document.getElementById('focusAreas').value
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      Toast.show(data.error, 'error');
+      document.getElementById('resultPlaceholder').style.display = 'block';
+    } else {
+      currentPlanText = data.plan;
+      document.getElementById('resultTitle').innerHTML =
+        `<i class="bi bi-check-circle-fill" style="color:var(--accent-secondary)"></i> ${data.job_role} Interview Plan`;
+      const container = document.getElementById('interviewText');
+      document.getElementById('resultContent').style.display = 'block';
+      typewriterRender(container, data.plan);
+      Toast.show('Interview plan ready! 🎯', 'success');
+    }
+  } catch(err) {
+    Toast.show('Network error. Please try again.', 'error');
+    document.getElementById('resultPlaceholder').style.display = 'block';
+  } finally {
+    document.getElementById('loadingState').style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stars"></i> Generate Interview Plan';
+  }
+});
+
+function copyPlan() {
+  if (!currentPlanText) return;
+  copyToClipboard(currentPlanText, document.getElementById('copyBtn'));
+}
+</script>
+{% endblock %}
