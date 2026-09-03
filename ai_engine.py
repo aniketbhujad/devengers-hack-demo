@@ -86,7 +86,7 @@ SAFETY:
 - Keep responses helpful and constructive at all times"""
 
 
-# ─── IBM WATSONX CLIENT ──────────────────────────────────────────────────────
+
 def _get_watsonx_client():
     """Lazily initialise the IBM Watsonx.ai client."""
     try:
